@@ -1,31 +1,47 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScanBarcode, Package, Check, Camera } from 'lucide-react';
-import { mockCarts } from '@/data/mockData';
+import { ScanBarcode, Package, Check, Camera, Loader2 } from 'lucide-react';
+import { api } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 
 const Scanner = () => {
   const [boxCode, setBoxCode] = useState('');
+  const [description, setDescription] = useState('');
   const [selectedCart, setSelectedCart] = useState('');
+  const [carts, setCarts] = useState<any[]>([]);
   const [scanHistory, setScanHistory] = useState<{ code: string; cart: string; time: string }[]>([]);
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleScan = () => {
+  useEffect(() => {
+    api.getCarts().then(setCarts).catch(() => {});
+  }, []);
+
+  const handleScan = async () => {
     if (!boxCode.trim() || !selectedCart) {
       toast({ title: 'Erro', description: 'Preencha o código e selecione um carrinho', variant: 'destructive' });
       return;
     }
-    const cart = mockCarts.find(c => c.id === selectedCart);
-    setScanHistory(prev => [
-      { code: boxCode, cart: cart?.code || '', time: new Date().toLocaleTimeString('pt-PT') },
-      ...prev,
-    ]);
-    toast({ title: 'Caixa registada', description: `${boxCode} → ${cart?.code}` });
-    setBoxCode('');
+    setLoading(true);
+    try {
+      await api.createBox(boxCode, description, parseInt(selectedCart));
+      const cart = carts.find((c: any) => String(c.Id) === selectedCart);
+      setScanHistory(prev => [
+        { code: boxCode, cart: cart?.Code || '', time: new Date().toLocaleTimeString('pt-PT') },
+        ...prev,
+      ]);
+      toast({ title: 'Caixa registada', description: `${boxCode} → ${cart?.Code}` });
+      setBoxCode('');
+      setDescription('');
+    } catch (err: any) {
+      toast({ title: 'Erro', description: err.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -52,8 +68,8 @@ const Scanner = () => {
               </div>
             </div>
 
-            <div className="relative">
-              <Label htmlFor="boxCode">Código manual</Label>
+            <div>
+              <Label htmlFor="boxCode">Código da caixa</Label>
               <Input
                 id="boxCode"
                 placeholder="Ex: CX-007"
@@ -65,21 +81,31 @@ const Scanner = () => {
             </div>
 
             <div>
+              <Label htmlFor="desc">Descrição</Label>
+              <Input
+                id="desc"
+                placeholder="Ex: Peças Motor B"
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+              />
+            </div>
+
+            <div>
               <Label>Carrinho destino</Label>
               <Select value={selectedCart} onValueChange={setSelectedCart}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o carrinho" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockCarts.map(cart => (
-                    <SelectItem key={cart.id} value={cart.id}>{cart.code}</SelectItem>
+                  {carts.map((cart: any) => (
+                    <SelectItem key={cart.Id} value={String(cart.Id)}>{cart.Code}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            <Button onClick={handleScan} className="w-full" size="lg">
-              <Package className="mr-2 h-4 w-4" />
+            <Button onClick={handleScan} className="w-full" size="lg" disabled={loading}>
+              {loading ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Package className="mr-2 h-4 w-4" />}
               Registar Caixa
             </Button>
           </CardContent>
