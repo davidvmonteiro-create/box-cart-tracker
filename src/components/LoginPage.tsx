@@ -18,8 +18,8 @@ const LoginPage = () => {
     setLoading(true);
     setError('');
     try {
-      const success = await login(email, password);
-      if (!success) setError('Credenciais inválidas');
+      const result = await login(email, password);
+      if (!result.success) setError(result.error || 'Credenciais inválidas');
     } catch {
       setError('Erro ao conectar ao servidor');
     } finally {
