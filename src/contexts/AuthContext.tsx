@@ -1,5 +1,12 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import type { User } from '@/types/warehouse';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { api, setToken, clearToken } from '@/services/api';
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+}
 
 interface AuthContextType {
   user: User | null;
@@ -17,22 +24,28 @@ export const useAuth = () => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    const stored = localStorage.getItem('wms_user');
+    return stored ? JSON.parse(stored) : null;
+  });
 
-  const login = useCallback(async (email: string, _password: string) => {
-    // TODO: Replace with real MS SQL Server API call
-    // POST /api/auth/login { email, password }
-    await new Promise(r => setTimeout(r, 800));
-    setUser({
-      id: '1',
-      name: email.split('@')[0],
-      email,
-      role: 'operator',
-    });
-    return true;
+  const login = useCallback(async (email: string, password: string) => {
+    try {
+      const data = await api.login(email, password);
+      setToken(data.token);
+      setUser(data.user);
+      localStorage.setItem('wms_user', JSON.stringify(data.user));
+      return true;
+    } catch {
+      return false;
+    }
   }, []);
 
-  const logout = useCallback(() => setUser(null), []);
+  const logout = useCallback(() => {
+    clearToken();
+    localStorage.removeItem('wms_user');
+    setUser(null);
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout }}>
