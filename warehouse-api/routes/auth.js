@@ -9,15 +9,21 @@ const router = express.Router();
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log('[LOGIN] Tentativa:', email);
     const pool = await getPool();
     const result = await pool.request()
       .input('email', sql.VarChar, email)
       .query('SELECT * FROM Users WHERE Email = @email');
 
     const user = result.recordset[0];
-    if (!user) return res.status(401).json({ error: 'Credenciais inválidas' });
+    if (!user) {
+      console.log('[LOGIN] Utilizador NÃO encontrado na DB');
+      return res.status(401).json({ error: 'Credenciais inválidas' });
+    }
 
+    console.log('[LOGIN] Utilizador encontrado:', user.Email, '| Hash length:', user.PasswordHash?.length);
     const valid = await bcrypt.compare(password, user.PasswordHash);
+    console.log('[LOGIN] Password válida?', valid);
     if (!valid) return res.status(401).json({ error: 'Credenciais inválidas' });
 
     const token = jwt.sign(
